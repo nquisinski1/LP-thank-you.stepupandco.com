@@ -11,7 +11,7 @@ Data da revisão local: 2026-07-13.
 | Reportagem Investor Lifestyle | VERIFIED_LOCAL | Imagem, título, data e link direto para `Nadie construye los cimientos` integrados. Falta aprovação humana de uso editorial. |
 | Canais sociais | VERIFIED_LOCAL | LinkedIn e Instagram de Harold ativos. YouTube está preparado e oculto até confirmar a URL oficial. |
 | Convite para outros líderes | VERIFIED_LOCAL | Uma única ação compartilha a P1 `https://ceo.stepupandco.com`; quando o compartilhamento nativo não existe, copia o mesmo endereço sem PII. |
-| Importação Hostinger Node.js | VERIFIED_LOCAL | `package.json` contém `npm start`; `app.js` serve `src/`, respeita `PORT` e expõe `/healthz`. Falta o primeiro push para criar a branch remota `main`. |
+| Importação Hostinger Node.js | VERIFIED_REMOTE | A branch remota `main` existe no GitHub; `package.json` contém `npm start`; `app.js` serve `src/`, respeita `PORT` e expõe `/healthz`. GitHub Actions validou o commit `245410c` com sucesso. |
 | VSL privacy-enhanced | BLOCKED_ACCOUNT | Lazy embed implementado; falta `vsl.youtubeId` oficial. |
 | Dados oficiais da sessão | BLOCKED_ACCOUNT | Falta confirmar título final, data, hora e instrução de acesso. |
 | Aviso LFPDPPP | BLOCKED_ACCOUNT | Falta `links.privacyUrl`; sem essa URL, o código impede carregamento de medição. |

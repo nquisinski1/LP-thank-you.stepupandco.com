@@ -86,4 +86,4 @@ O projeto inclui uma entrada Node.js mínima para a importação de repositório
 - a porta é recebida de `process.env.PORT`;
 - `GET /healthz` permite confirmar que a aplicação iniciou.
 
-Depois do primeiro push, selecione a branch `main` na Hostinger. O domínio e o teste do redirect no GHL continuam sendo etapas separadas do deploy técnico.
+Na Hostinger, atualize a lista de repositórios e selecione a branch `main`. O domínio e o teste do redirect no GHL continuam sendo etapas separadas do deploy técnico.
