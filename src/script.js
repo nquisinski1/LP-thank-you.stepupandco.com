@@ -2,19 +2,19 @@
   "use strict";
 
   const config = window.STEPUP_THANK_YOU_CONFIG || {};
+  const pageMeta = config.page || {};
   const dataLayer = (window.dataLayer = window.dataLayer || []);
-  const consentKey = "stepup_campaign_consent";
+  // Canonical consent store = the cookie shared across *.stepupandco.com (same
+  // name the LP writes). The old localStorage key is legacy, read-only for
+  // migration — localStorage can never cross the subdomain boundary (fix F1).
+  const consentCookieName = "stepup_consent_state";
+  const legacyConsentKey = "stepup_campaign_consent";
   const sessionKey = "stepup_campaign_session_id";
-  const allowedMetaPixelId = "2249459879220653";
+  const pageLoadTs = Date.now();
   let volatileSessionId = "";
 
   function nowIso() {
     return new Date().toISOString();
-  }
-
-  function uuid() {
-    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
-    return "evt_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2);
   }
 
   function getSessionId() {
@@ -26,7 +26,12 @@
     }
 
     if (!value) {
-      value = uuid();
+      value =
+        (window.crypto?.randomUUID && window.crypto.randomUUID()) ||
+        "evt_" +
+          Date.now().toString(36) +
+          "_" +
+          Math.random().toString(36).slice(2);
       volatileSessionId = value;
       try {
         sessionStorage.setItem(sessionKey, value);
@@ -39,43 +44,164 @@
 
   function sanitizeUrl() {
     const url = new URL(window.location.href);
+    const allowedQueryKeys = new Set(["cid", "event_id"]);
     let changed = false;
 
     [...url.searchParams.keys()].forEach((key) => {
-      if (key !== "event_id") {
+      if (!allowedQueryKeys.has(key)) {
         url.searchParams.delete(key);
         changed = true;
       }
     });
 
-    const eventId = url.searchParams.get("event_id") || "";
-    if (eventId && !/^[A-Za-z0-9_-]{1,128}$/.test(eventId)) {
-      url.searchParams.delete("event_id");
-      changed = true;
-    }
+    allowedQueryKeys.forEach((key) => {
+      const value = url.searchParams.get(key) || "";
+      if (value && !/^[A-Za-z0-9_-]{1,128}$/.test(value)) {
+        url.searchParams.delete(key);
+        changed = true;
+      }
+    });
 
     if (changed) {
       try {
-        window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+        window.history.replaceState(
+          {},
+          document.title,
+          url.pathname + url.search + url.hash,
+        );
       } catch {
         // The URL is still excluded from analytics below if file previews reject replaceState.
       }
     }
   }
 
-  function getRegistrationEventId() {
-    const value = new URLSearchParams(window.location.search).get("event_id") || "";
+  function getContactId() {
+    // GHL's on-submit redirect carries the journey key as ?cid={{contact.id}}.
+    // ABSENT-SAFE: GHL does not always resolve the merge tag on iframe redirects
+    // today, so this must degrade to "" rather than fail.
+    const value = new URLSearchParams(window.location.search).get("cid") || "";
     return /^[A-Za-z0-9_-]{1,128}$/.test(value) ? value : "";
+  }
+
+  function getRegistrationEventId() {
+    const value =
+      new URLSearchParams(window.location.search).get("event_id") || "";
+    return /^[A-Za-z0-9_-]{1,128}$/.test(value) ? value : "";
+  }
+
+  function getCookie(name) {
+    return (
+      document.cookie
+        .split("; ")
+        .find((row) => row.startsWith(name + "="))
+        ?.split("=")
+        .slice(1)
+        .join("=") || ""
+    );
+  }
+
+  function consentCookieAttributes() {
+    const domain = window.location.hostname.endsWith("stepupandco.com")
+      ? "; Domain=.stepupandco.com"
+      : "";
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    return "; Path=/; Max-Age=31536000; SameSite=Lax" + secure + domain;
+  }
+
+  function writeConsentCookie(payload) {
+    document.cookie =
+      consentCookieName +
+      "=" +
+      encodeURIComponent(JSON.stringify(payload)) +
+      consentCookieAttributes();
+  }
+
+  function readConsentCookie() {
+    const raw = getCookie(consentCookieName);
+    if (!raw) return null;
+    try {
+      return JSON.parse(decodeURIComponent(raw));
+    } catch {
+      return null;
+    }
+  }
+
+  function readLegacyConsent() {
+    try {
+      return JSON.parse(localStorage.getItem(legacyConsentKey) || "null");
+    } catch {
+      return null;
+    }
+  }
+
+  function readConsent() {
+    const fromCookie = readConsentCookie();
+    if (fromCookie) return fromCookie;
+    const legacy = readLegacyConsent();
+    if (legacy) {
+      // Pre-cookie visitors stored their choice in this page's localStorage —
+      // migrate it silently so the cookie becomes the single source of truth.
+      // The pre-cookie script's decline vocabulary was "declined"; normalize it
+      // to "necessary_only" so the migrated decliner stays blocked (F1 intent).
+      if (legacy.status === "declined") legacy.status = "necessary_only";
+      writeConsentCookie(legacy);
+      return legacy;
+    }
+    return null;
+  }
+
+  function saveConsent(status) {
+    const value = {
+      status,
+      version: config.tracking?.consentVersion || "unversioned",
+      timestamp: nowIso(),
+    };
+    writeConsentCookie(value);
+    return value;
+  }
+
+  function getConsentState() {
+    const stored = readConsent();
+    if (stored?.status === "necessary_only") return "necessary_only";
+    if (stored?.status === "accepted") return "accepted";
+    return "granted_default";
+  }
+
+  function applyGoogleConsent(command, state) {
+    const granted = state !== "necessary_only";
+    window.gtag =
+      window.gtag ||
+      function () {
+        dataLayer.push(arguments);
+      };
+    window.gtag("consent", command, {
+      analytics_storage: granted ? "granted" : "denied",
+      ad_storage: granted ? "granted" : "denied",
+      ad_user_data: granted ? "granted" : "denied",
+      ad_personalization: granted ? "granted" : "denied",
+    });
+    dataLayer.push({
+      event: "consent_state_updated",
+      consent_state: state,
+    });
   }
 
   function pushEvent(name, params) {
     dataLayer.push({
       event: name,
       event_time: nowIso(),
-      page_location: window.location.origin === "null" ? window.location.pathname : window.location.origin + window.location.pathname,
+      page_location:
+        window.location.origin === "null"
+          ? window.location.pathname
+          : window.location.origin + window.location.pathname,
       page_title: document.title,
       session_id: getSessionId(),
-      ...(params || {})
+      page_id: pageMeta.pageId || "",
+      offer: pageMeta.offer || "",
+      funnel_stage: pageMeta.funnelStage || "thank_you",
+      build_version: pageMeta.buildVersion || "",
+      consent_state: getConsentState(),
+      ...(params || {}),
     });
   }
 
@@ -115,11 +241,13 @@
     setText("[data-current-year]", new Date().getFullYear());
 
     const privacyUrl = safeHttpUrl(config.links?.privacyUrl);
-    document.querySelectorAll("[data-privacy-link], [data-consent-privacy-link]").forEach((link) => {
-      if (!privacyUrl) return;
-      link.href = privacyUrl;
-      link.removeAttribute("aria-disabled");
-    });
+    document
+      .querySelectorAll("[data-privacy-link], [data-consent-privacy-link]")
+      .forEach((link) => {
+        if (!privacyUrl) return;
+        link.href = privacyUrl;
+        link.removeAttribute("aria-disabled");
+      });
 
     const companyUrl = safeHttpUrl(config.links?.companyUrl);
     document.querySelectorAll("[data-company-link]").forEach((link) => {
@@ -127,13 +255,27 @@
     });
 
     configureExternalLink("[data-report-link]", config.links?.reportUrl, false);
-    configureExternalLink('[data-social-link="linkedin"]', config.links?.linkedinUrl, false);
-    configureExternalLink('[data-social-link="instagram"]', config.links?.instagramUrl, false);
-    configureExternalLink('[data-social-link="youtube"]', config.links?.youtubeUrl, true);
+    configureExternalLink(
+      '[data-social-link="linkedin"]',
+      config.links?.linkedinUrl,
+      false,
+    );
+    configureExternalLink(
+      '[data-social-link="instagram"]',
+      config.links?.instagramUrl,
+      false,
+    );
+    configureExternalLink(
+      '[data-social-link="youtube"]',
+      config.links?.youtubeUrl,
+      true,
+    );
 
     document.querySelectorAll("[data-authority-link]").forEach((link) => {
       link.addEventListener("click", () => {
-        pushEvent("authority_content_clicked", { source: link.dataset.authorityLink || "unknown" });
+        pushEvent("authority_content_clicked", {
+          source: link.dataset.authorityLink || "unknown",
+        });
       });
     });
 
@@ -157,7 +299,8 @@
     trigger?.addEventListener("click", () => {
       if (!/^[A-Za-z0-9_-]{11}$/.test(youtubeId)) {
         if (message) {
-          message.textContent = "El video será conectado antes del lanzamiento.";
+          message.textContent =
+            "El video será conectado antes del lanzamiento.";
           message.hidden = false;
         }
         return;
@@ -167,7 +310,8 @@
       iframe.className = "vsl-frame";
       iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeId)}?autoplay=1&rel=0&modestbranding=1`;
       iframe.title = "Mensaje de Harold Mesa antes de la masterclass";
-      iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+      iframe.allow =
+        "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
       iframe.allowFullscreen = true;
       trigger.replaceWith(iframe);
       if (message) message.hidden = true;
@@ -200,7 +344,9 @@
       return;
     }
 
-    const shareUrl = registrationUrl.endsWith("/") ? registrationUrl.slice(0, -1) : registrationUrl;
+    const shareUrl = registrationUrl.endsWith("/")
+      ? registrationUrl.slice(0, -1)
+      : registrationUrl;
     const share = module.querySelector("[data-registration-share]");
     const status = module.querySelector("[data-share-status]");
 
@@ -210,7 +356,7 @@
           await navigator.share({
             title: "Masterclass ejecutiva · StepUp & Company",
             text: "Te invito a registrarte en esta masterclass ejecutiva con Harold Mesa.",
-            url: shareUrl
+            url: shareUrl,
           });
           if (status) status.textContent = "Enlace compartido.";
           pushEvent("invite_shared", { channel: "native_share" });
@@ -228,31 +374,11 @@
         if (status) status.textContent = "Enlace copiado. Ya puedes enviarlo.";
         pushEvent("invite_shared", { channel: "copy" });
       } catch {
-        if (status) status.textContent = "No fue posible copiar. Abre la página de registro y copia su dirección.";
+        if (status)
+          status.textContent =
+            "No fue posible copiar. Abre la página de registro y copia su dirección.";
       }
     });
-  }
-
-  function readConsent() {
-    try {
-      return JSON.parse(localStorage.getItem(consentKey) || "null");
-    } catch {
-      return null;
-    }
-  }
-
-  function saveConsent(status) {
-    const value = {
-      status,
-      version: config.tracking?.consentVersion || "unversioned",
-      timestamp: nowIso()
-    };
-    try {
-      localStorage.setItem(consentKey, JSON.stringify(value));
-    } catch {
-      // Consent still applies to the current view when persistent storage is unavailable.
-    }
-    return value;
   }
 
   function loadScript(src) {
@@ -263,91 +389,63 @@
     document.head.appendChild(script);
   }
 
-  function initMeta() {
-    const pixelId = String(config.tracking?.metaPixelId || "");
-    if (pixelId !== allowedMetaPixelId) return;
-    if (config.tracking?.blockedPixelIds?.includes(pixelId)) return;
-    if (window.fbq) return;
-
-    !(function (f, b, e, v, n, t, s) {
-      if (f.fbq) return;
-      n = f.fbq = function () {
-        n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-      };
-      if (!f._fbq) f._fbq = n;
-      n.push = n;
-      n.loaded = true;
-      n.version = "2.0";
-      n.queue = [];
-      t = b.createElement(e);
-      t.async = true;
-      t.src = v;
-      s = b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t, s);
-    })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
-
-    window.fbq("init", pixelId);
-    window.fbq("track", "PageView");
-  }
-
   function initGtmAndGa4() {
-    const gtmId = String(config.tracking?.gtmContainerId || "");
-    const ga4Id = String(config.tracking?.ga4MeasurementId || "");
+    // Consent signal MUST land in the dataLayer before gtm.js loads so GTM's own
+    // consent-exception triggers (Page View + Custom Events) evaluate correctly
+    // from the very first pageview onward (Decision A, LIGHT/opt-out model).
+    const consentState = getConsentState();
+    applyGoogleConsent("default", consentState);
+    dataLayer.push({ consent_state: consentState });
 
+    const gtmId = String(config.tracking?.gtmContainerId || "");
     if (/^GTM-[A-Z0-9]+$/.test(gtmId)) {
       dataLayer.push({ "gtm.start": Date.now(), event: "gtm.js" });
-      loadScript(`https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(gtmId)}`);
+      loadScript(
+        `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(gtmId)}`,
+      );
     }
 
+    const ga4Id = String(config.tracking?.ga4MeasurementId || "");
     if (/^G-[A-Z0-9]+$/.test(ga4Id)) {
-      loadScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(ga4Id)}`);
-      window.gtag = function () {
-        dataLayer.push(arguments);
-      };
+      loadScript(
+        `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(ga4Id)}`,
+      );
       window.gtag("js", new Date());
       window.gtag("config", ga4Id, { send_page_view: false });
     }
   }
 
-  function activateMeasurement() {
-    if (!safeHttpUrl(config.links?.privacyUrl)) return;
-    initMeta();
-    initGtmAndGa4();
+  function setupConsentBanner() {
+    // LIGHT/opt-out model (Decision A): measurement always fires on load via
+    // initGtmAndGa4() above. The banner only offers a choice going forward —
+    // it never gates the initial pageview.
+    const banner = document.querySelector("[data-consent-banner]");
+    if (!readConsent() && banner) banner.hidden = false;
   }
 
-  function setupConsent() {
+  function setupConsentButtons() {
     const banner = document.querySelector("[data-consent-banner]");
     const accept = document.querySelector("[data-consent-accept]");
     const decline = document.querySelector("[data-consent-decline]");
-    const stored = readConsent();
-    const privacyUrl = safeHttpUrl(config.links?.privacyUrl);
-    const consentVersion = config.tracking?.consentVersion || "unversioned";
-    const consentIsCurrent = stored?.version === consentVersion;
-    const hasMeasurement = Boolean(
-      config.tracking?.metaPixelId ||
-      config.tracking?.gtmContainerId ||
-      config.tracking?.ga4MeasurementId
-    );
-
-    if (!privacyUrl || !hasMeasurement) return;
-
-    if (consentIsCurrent && stored?.status === "accepted") {
-      activateMeasurement();
-      return;
-    }
-
-    if (consentIsCurrent && stored?.status === "declined") return;
-    banner.hidden = false;
 
     accept?.addEventListener("click", () => {
       saveConsent("accepted");
-      banner.hidden = true;
-      activateMeasurement();
+      applyGoogleConsent("update", "accepted");
+      pushEvent("consent_choice", {
+        choice: "accepted",
+        ms_to_choice: Date.now() - pageLoadTs,
+      });
+      if (banner) banner.hidden = true;
     });
 
     decline?.addEventListener("click", () => {
-      saveConsent("declined");
-      banner.hidden = true;
+      saveConsent("necessary_only");
+      applyGoogleConsent("update", "necessary_only");
+      pushEvent("consent_choice", {
+        choice: "necessary_only",
+        ms_to_choice: Date.now() - pageLoadTs,
+      });
+      if (banner) banner.hidden = true;
     });
   }
 
@@ -355,6 +453,21 @@
   configurePage();
   setupVsl();
   setupSharing();
-  pushEvent("thank_you_viewed", { registration_event_id: getRegistrationEventId() });
-  setupConsent();
+  initGtmAndGa4();
+
+  // The pseudonymous GHL contact ID is the durable journey key. A separate
+  // technical event_id remains supported for browser/server deduplication.
+  const contactId = getContactId();
+  const registrationEventId = getRegistrationEventId() || contactId;
+  pushEvent("thank_you_viewed", {
+    event_id: registrationEventId,
+    contact_id: contactId,
+  });
+  pushEvent("registration_completed", {
+    event_id: registrationEventId,
+    contact_id: contactId,
+  });
+
+  setupConsentBanner();
+  setupConsentButtons();
 })();

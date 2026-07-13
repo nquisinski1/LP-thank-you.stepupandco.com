@@ -1,5 +1,11 @@
 window.STEPUP_THANK_YOU_CONFIG = {
   schemaVersion: "1.0.0",
+  page: {
+    pageId: "ceo_masterclass_thank_you",
+    offer: "company_masterclass",
+    funnelStage: "thank_you",
+    buildVersion: "2026-07-13.2"
+  },
   session: {
     title: "Masterclass privada · StepUp & Company",
     dateLabel: "Consulta el correo de confirmación",
@@ -29,7 +35,7 @@ window.STEPUP_THANK_YOU_CONFIG = {
     consentVersion: "mx-lfpdppp-v1-2026-07-13",
     metaPixelId: "2249459879220653",
     blockedPixelIds: ["978621541831814", "2014625735818543"],
-    gtmContainerId: "",
+    gtmContainerId: "GTM-K3DFK7M7",
     ga4MeasurementId: ""
   }
 };

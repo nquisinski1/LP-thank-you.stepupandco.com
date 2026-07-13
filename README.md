@@ -24,14 +24,16 @@ O pixel Meta está travado em `2249459879220653`. Os IDs `978621541831814` e `20
 
 ## Contrato do funil
 
-- A página recebe apenas `event_id` como identificador técnico opcional.
-- Nunca inclua nome, email, telefone ou WhatsApp na URL.
-- A página dispara `thank_you_viewed`, `vsl_started`, `authority_content_clicked`, `invite_shared` e, se houver P2, `qualifier_cta_clicked`.
+- A página recebe `cid` como identificador pseudônimo do contato no GHL e `event_id` como identificador técnico opcional.
+- Nunca inclua nome, email, telefone, WhatsApp, receita ou valores brutos do formulário na URL.
+- A página dispara `thank_you_viewed`, `registration_completed`, `vsl_started`, `authority_content_clicked`, `invite_shared` e, se houver P2, `qualifier_cta_clicked`.
+- `thank_you_viewed` e `registration_completed` carregam `contact_id` e `event_id` para fechar e deduplicar a jornada analítica.
 - `invite_shared` registra somente a ação de compartilhar ou copiar. O link sempre aponta para a P1 e não contém PII.
 - A página nunca dispara `Lead`, `QualifiedApplication` ou eventos de venda.
 - `QualifiedApplication` pertence ao P2 e só ocorre quando o qualificador confirma aprovação.
 - O vídeo usa `youtube-nocookie.com` e só é carregado após o clique.
-- Tags não essenciais são carregadas somente após consentimento.
+- O GTM `GTM-K3DFK7M7` e os eventos iniciais carregam no modelo `LIGHT/opt-out`; uma escolha anterior `necessary_only` é respeitada e uma nova recusa atualiza o estado para medição posterior.
+- O aviso de privacidade precisa informar o uso do `cid`, as finalidades de medição e os mecanismos de oposição antes da liberação para tráfego.
 
 ## Bloqueios antes de publicar
 

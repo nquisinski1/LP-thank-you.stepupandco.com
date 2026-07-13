@@ -153,7 +153,12 @@ assert(
 
 const forbiddenTracking = /(?:fbq|pushEvent)\([^\n]*(?:Lead|QualifiedApplication|ViewContent|BookedCall|ClosedWon)/;
 assert(!forbiddenTracking.test(script), "A forbidden conversion event is present in the thank-you page.");
+assert(script.includes('new Set(["cid", "event_id"])'), "Only cid and event_id may remain in the URL.");
+assert(script.includes("function getContactId()"), "Missing the sanitized GHL contact ID reader.");
+assert(script.includes("function getRegistrationEventId()"), "Missing the technical deduplication ID reader.");
 assert(script.includes('pushEvent("thank_you_viewed"'), "Missing thank_you_viewed event.");
+assert(script.includes('pushEvent("registration_completed"'), "Missing registration_completed journey event.");
+assert(script.includes("contact_id: contactId"), "The pseudonymous contact_id is missing from journey events.");
 assert(script.includes('pushEvent("vsl_started"'), "Missing vsl_started event.");
 assert(script.includes('pushEvent("invite_shared"'), "Missing privacy-safe invite_shared event.");
 assert(script.includes("navigator.share"), "Missing native registration-link sharing behavior.");
@@ -167,9 +172,27 @@ assert(config.includes('linkedinUrl: "https://www.linkedin.com/in/haroldhmesa/"'
 assert(config.includes('instagramUrl: "https://www.instagram.com/imharoldmesa/"'), "Verified Harold Instagram URL is missing.");
 assert(config.includes('reportUrl: "https://investor.com.pa/business/nadie-construye-los-cimientos/"'), "Verified Investor Lifestyle report URL is missing.");
 assert(config.includes('registrationUrl: "https://ceo.stepupandco.com"'), "Registration-page invite URL is missing.");
+assert(config.includes('pageId: "ceo_masterclass_thank_you"'), "Stable thank-you page metadata is missing.");
+assert(config.includes('funnelStage: "thank_you"'), "The page must remain identified as the thank-you stage.");
+assert(config.includes('gtmContainerId: "GTM-K3DFK7M7"'), "The supplied GTM container ID is missing.");
+const initialMeasurementIndex = script.lastIndexOf("initGtmAndGa4();");
+const consentBannerIndex = script.lastIndexOf("setupConsentBanner();");
+assert(
+  initialMeasurementIndex !== -1 &&
+    consentBannerIndex !== -1 &&
+    initialMeasurementIndex < consentBannerIndex,
+  "Initial measurement must load before the opt-out banner is presented."
+);
+assert(script.includes('applyGoogleConsent("default", consentState)'), "Missing initial Google Consent Mode state.");
+assert(script.includes('applyGoogleConsent("update", "necessary_only")'), "Declining must update Google Consent Mode.");
+assert(script.includes('consentCookieName = "stepup_consent_state"'), "Missing shared consent cookie.");
+assert(
+  !/(?:^|[,{"]\s*)(?:contact_)?(?:name|email|phone|telephone|whatsapp|revenue|income)\s*:/im.test(script),
+  "A direct personal or form field appears in the tracking payload."
+);
 
 if (/youtubeId:\s*""/.test(config)) warnings.push("VSL YouTube ID is not configured.");
-if (/privacyUrl:\s*""/.test(config)) warnings.push("Privacy URL is not configured; measurement remains disabled.");
+if (/privacyUrl:\s*""/.test(config)) warnings.push("Privacy URL is not configured; initial measurement is active but traffic remains privacy-compliance blocked.");
 if (/qualifierUrl:\s*""/.test(config)) warnings.push("P2 qualifier URL is not configured; CTA remains hidden.");
 
 if (errors.length) {

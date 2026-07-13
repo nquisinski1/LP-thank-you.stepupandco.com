@@ -117,7 +117,7 @@ Um contador poderá ser habilitado somente quando existir uma fonte real e atual
 - nenhum número de inscritos ou escassez inventado;
 - sem overflow horizontal a 360 px;
 - sem `Lead`, `QualifiedApplication` ou eventos de venda;
-- P2, medição e privacidade continuam bloqueados quando não configurados.
+- P2 continua oculto quando não configurado; a medição inicial `LIGHT/opt-out` pode operar em preview, mas o tráfego permanece bloqueado até publicar o aviso de privacidade e validar GTM/Consent Mode.
 
 ## Bloqueios preservados
 
