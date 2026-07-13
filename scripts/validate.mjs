@@ -95,7 +95,7 @@ assert(
 );
 assert(
   html.includes("data-editorial-feature") &&
-    html.includes("./assets/harold-investor-report-20260713.jpg") &&
+    html.includes("./media/investor-report") &&
     html.includes("https://investor.com.pa/business/nadie-construye-los-cimientos/"),
   "Missing the verified Investor Lifestyle editorial feature."
 );
@@ -133,9 +133,13 @@ assert(
 const localReferences = [...html.matchAll(/(?:src|href)="(\.\/[^"]+)"/g)].map((match) => match[1]);
 localReferences.forEach((reference) => {
   const referencePath = reference.split(/[?#]/, 1)[0];
+  if (referencePath.startsWith("./media/")) return;
   const target = path.resolve(srcRoot, referencePath);
   assert(fs.existsSync(target), `Missing local reference: ${reference}`);
 });
+
+const mediaReferences = localReferences.filter((reference) => reference.startsWith("./media/"));
+assert(mediaReferences.length === 9, `Expected nine CDN-safe media references, found ${mediaReferences.length}.`);
 
 assert(/aspect-ratio:\s*16\s*\/\s*9/.test(css), "The VSL must keep a stable 16:9 ratio.");
 assert(/@media\s*\(max-width:\s*800px\)/.test(css), "Missing mobile breakpoint at 800px.");

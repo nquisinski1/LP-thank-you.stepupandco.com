@@ -4,7 +4,7 @@ window.STEPUP_THANK_YOU_CONFIG = {
     pageId: "ceo_masterclass_thank_you",
     offer: "company_masterclass",
     funnelStage: "thank_you",
-    buildVersion: "2026-07-13.3"
+    buildVersion: "2026-07-13.4"
   },
   session: {
     title: "Masterclass privada · StepUp & Company",

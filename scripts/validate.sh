@@ -7,3 +7,4 @@ cd "$PROJECT_ROOT"
 node --check src/script.js
 node scripts/validate.mjs
 node scripts/test-tracking.mjs
+node scripts/test-media-delivery.mjs

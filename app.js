@@ -20,6 +20,17 @@ const contentTypes = {
   ".webp": "image/webp"
 };
 
+const mediaFiles = new Map([
+  ["brand-white", "stepup-white-20260713.png"],
+  ["hero-stage", "harold-hero-296.jpg"],
+  ["stage", "harold-stage.jpg"],
+  ["candid", "harold-candid.jpeg"],
+  ["authority", "harold-authority.jpeg"],
+  ["investor-report", "harold-investor-report-20260713.jpg"],
+  ["investor-editorial", "harold-investor-editorial.jpg"],
+  ["power", "harold-power.jpeg"]
+]);
+
 function sendText(response, statusCode, message) {
   response.writeHead(statusCode, {
     "Content-Type": "text/plain; charset=utf-8",
@@ -46,6 +57,34 @@ function serveFile(filePath, response) {
   stream.pipe(response);
 }
 
+function serveMedia(filename, requestMethod, response) {
+  const filePath = path.join(root, "assets", filename);
+
+  fs.stat(filePath, (error, stats) => {
+    if (error || !stats.isFile()) {
+      sendText(response, 404, "Not found");
+      return;
+    }
+
+    const extension = path.extname(filePath).toLowerCase();
+    response.writeHead(200, {
+      "Cache-Control": "no-store, no-transform",
+      "Content-Length": stats.size,
+      "Content-Type": contentTypes[extension] || "application/octet-stream",
+      "X-Content-Type-Options": "nosniff"
+    });
+
+    if (requestMethod === "HEAD") {
+      response.end();
+      return;
+    }
+
+    const stream = fs.createReadStream(filePath);
+    stream.on("error", () => response.destroy());
+    stream.pipe(response);
+  });
+}
+
 const server = http.createServer((request, response) => {
   if (request.method !== "GET" && request.method !== "HEAD") {
     response.setHeader("Allow", "GET, HEAD");
@@ -63,6 +102,17 @@ const server = http.createServer((request, response) => {
 
   if (pathname === "/healthz") {
     sendText(response, 200, "ok");
+    return;
+  }
+
+  if (pathname.startsWith("/media/")) {
+    const mediaKey = pathname.slice("/media/".length);
+    const filename = mediaFiles.get(mediaKey);
+    if (!filename) {
+      sendText(response, 404, "Not found");
+      return;
+    }
+    serveMedia(filename, request.method, response);
     return;
   }
 
@@ -97,4 +147,3 @@ const server = http.createServer((request, response) => {
 server.listen(port, host, () => {
   console.log(`StepUp thank-you page listening on ${host}:${port}`);
 });
-
