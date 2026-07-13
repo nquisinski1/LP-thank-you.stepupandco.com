@@ -11,13 +11,13 @@ Data da revisão local: 2026-07-13.
 | Reportagem Investor Lifestyle | VERIFIED_LOCAL | Imagem, título, data e link direto para `Nadie construye los cimientos` integrados. Falta aprovação humana de uso editorial. |
 | Canais sociais | VERIFIED_LOCAL | LinkedIn e Instagram de Harold ativos. YouTube está preparado e oculto até confirmar a URL oficial. |
 | Convite para outros líderes | VERIFIED_LOCAL | Uma única ação compartilha a P1 `https://ceo.stepupandco.com`; quando o compartilhamento nativo não existe, copia o mesmo endereço sem PII. |
-| Importação Hostinger Node.js | VERIFIED_REMOTE | A branch remota `main` existe no GitHub; `package.json` contém `npm start`; `app.js` serve `src/`, respeita `PORT` e expõe `/healthz`. GitHub Actions validou o commit `245410c` com sucesso. |
+| Importação Hostinger Node.js | VERIFIED_REMOTE | A branch remota `main` existe no GitHub; `package.json` contém `npm start`; `app.js` serve `src/`, respeita `PORT` e expõe `/healthz`. A validação do release em GitHub Actions foi concluída com sucesso. |
 | Otimização de imagens | VERIFIED_LOCAL | Pacote recebido em 2026-07-13 incorporado com a foto principal reduzida de 8,3 MB para 217 KB e demais imagens equivalentes otimizadas, sem alterar o enquadramento editorial. |
 | GTM `GTM-K3DFK7M7` | IMPLEMENTED_UNVERIFIED | ID recebido no pacote e configurado para carregamento inicial no modelo `LIGHT/opt-out`. Falta validar tags, Consent Mode e bloqueio posterior a `necessary_only` no GTM Preview. |
 | VSL privacy-enhanced | BLOCKED_ACCOUNT | Lazy embed implementado; falta `vsl.youtubeId` oficial. |
 | Dados oficiais da sessão | BLOCKED_ACCOUNT | Falta confirmar título final, data, hora e instrução de acesso. |
 | Aviso LFPDPPP | BLOCKED_ACCOUNT | Falta `links.privacyUrl` descrevendo `cid`, finalidades, terceiros e oposição/ARCO. A medição inicial está implementada por decisão explícita, mas o tráfego permanece bloqueado sem o aviso. |
-| URL pública compartilhada | NOT_STARTED | Domínio/rota ainda não aprovado nem publicado. |
+| URL pública compartilhada | VERIFIED_REMOTE | `https://thank-you.stepupandco.com/` responde em HTTPS pela Hostinger; o release usa marcadores de versão nos recursos críticos para impedir conteúdo híbrido por cache de CDN. |
 | Redirect de cada LP após GHL | NOT_STARTED | Depende da URL pública e de teste real em cada fluxo P1. |
 | Jornada `cid` + `event_id` | IMPLEMENTED_UNVERIFIED | Query é reduzida aos dois identificadores permitidos; `contact_id` e `event_id` entram em `thank_you_viewed` e `registration_completed`; `page_location` exclui query string. Faltam redirect real e GTM/GA4 Debug. |
 | Meta/GTM no modelo opt-out | IMPLEMENTED_UNVERIFIED | GTM carrega no primeiro acesso com `granted_default` e atualiza Consent Mode após aceite ou recusa. Falta confirmar as tags reais no GTM Preview e Events Manager. |

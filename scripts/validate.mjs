@@ -95,7 +95,7 @@ assert(
 );
 assert(
   html.includes("data-editorial-feature") &&
-    html.includes("./assets/harold-investor-report.jpg") &&
+    html.includes("./assets/harold-investor-report-20260713.jpg") &&
     html.includes("https://investor.com.pa/business/nadie-construye-los-cimientos/"),
   "Missing the verified Investor Lifestyle editorial feature."
 );
@@ -130,9 +130,10 @@ assert(
   "The page must not fabricate registration volume or scarcity."
 );
 
-const localReferences = [...html.matchAll(/(?:src|href)="(\.\/[^"#?]+)"/g)].map((match) => match[1]);
+const localReferences = [...html.matchAll(/(?:src|href)="(\.\/[^"]+)"/g)].map((match) => match[1]);
 localReferences.forEach((reference) => {
-  const target = path.resolve(srcRoot, reference);
+  const referencePath = reference.split(/[?#]/, 1)[0];
+  const target = path.resolve(srcRoot, referencePath);
   assert(fs.existsSync(target), `Missing local reference: ${reference}`);
 });
 
