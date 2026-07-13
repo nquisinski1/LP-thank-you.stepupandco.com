@@ -1,0 +1,15 @@
+{
+  "name": "lp-thank-you-stepupandco-com",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Página oficial de agradecimento da masterclass StepUp & Company.",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "build": "sh scripts/prepare-public.sh",
+    "validate": "sh scripts/validate.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
